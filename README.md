@@ -1,2 +1,11 @@
-# CPP-File-System
-C++ File System Emulator using left-child right-sibling tree 
+# C++ File System
+
+## Supports:
+- cd
+- ls
+- pwd
+- touch
+- mkdir
+- rm
+- rmdir
+- mv  
