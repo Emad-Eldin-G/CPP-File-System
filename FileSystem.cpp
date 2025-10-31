@@ -1,24 +1,16 @@
 #include "FileSystem.h"
 
 Node::Node(const string& name, bool isDir, Node* parent, Node* leftmostChild, Node* rightSibling) {
-	// IMPLEMENT ME
-
 }
 
 Node::~Node() {
-	// IMPLEMENT ME
-
 }
 
 Node* Node::leftSibling() const {
-	// IMPLEMENT ME
-
 	return nullptr; // dummy
 }
 
 FileSystem::FileSystem() {
-	// IMPLEMENT ME
-
 }
 
 // Tests
@@ -77,17 +69,12 @@ FileSystem::FileSystem(const string& testinput) {
 }
 
 FileSystem::~FileSystem() {
-	// IMPLEMENT ME
-
 }
 
 string FileSystem::cd(const string& path) {
-	// IMPLEMENT ME
-
 	return ""; // dummy
 }
 
-// This is done for you as an example
 string FileSystem::ls() const {
 
 	string res;
@@ -105,43 +92,36 @@ string FileSystem::ls() const {
 }
 
 string FileSystem::pwd() const {
-	// IMPLEMENT ME
 
 	return ""; // dummy
 }
 
 string FileSystem::tree() const {
-	// IMPLEMENT ME
 
 	return ""; // dummy
 }
 
 string FileSystem::touch(const string& name) {
-	// IMPLEMENT ME
 
 	return ""; // dummy
 }
 
 string FileSystem::mkdir(const string& name) {
-	// IMPLEMENT ME
 
 	return ""; // dummy
 }
 
 string FileSystem::rm(const string& name) {
-	// IMPLEMENT ME
 
 	return ""; // dummy
 }
 
 string FileSystem::rmdir(const string& name) {
-	// IMPLEMENT ME
 
 	return ""; // dummy
 }
 
 string FileSystem::mv(const string& src, const string& dest) {
-	// IMPLEMENT ME
 
 	return ""; // dummy
 }
