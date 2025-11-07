@@ -62,6 +62,7 @@ graph TD
 ## Supports:
 - cd
 - ls
+- tree
 - pwd
 - touch
 - mkdir
