@@ -1,9 +1,18 @@
 #include "FileSystem.h"
 
 Node::Node(const string& name, bool isDir, Node* parent, Node* leftmostChild, Node* rightSibling) {
+	name_ = name;
+	isDir_ = isDir;
+	parent_ = parent;
+	leftmostChild_ = leftmostChild;
+	rightSibling_ = rightSibling;
+
 }
 
 Node::~Node() {
+	// empty for now
+	// later add code to delete the node and all its children
+
 }
 
 Node* Node::leftSibling() const {
@@ -11,6 +20,9 @@ Node* Node::leftSibling() const {
 }
 
 FileSystem::FileSystem() {
+	root_ = new Node("", true);
+	curr_ = root_;
+
 }
 
 // Tests
@@ -69,10 +81,41 @@ FileSystem::FileSystem(const string& testinput) {
 }
 
 FileSystem::~FileSystem() {
+	// release all memory used by the file system
+	delete root_;
+	delete curr_;
 }
 
 string FileSystem::cd(const string& path) {
-	return ""; // dummy
+	// Case 1: path is .. - go up one level
+	if (path == "..") {
+		if (curr->parent_ == nullptr) {
+			return "invalid path";
+		} else {
+			curr_ = curr_->parent_;
+			return "";
+		}
+	}
+
+	// Case 2: path is / - go to root
+	if(path == "/") {
+		curr_ = root_;
+		return "";
+	}
+
+	// Case 3: path is a child of the current directory
+	Node* temp = curr_.leftmostChild_;
+
+	while (temp != nullptr){
+		if (temp == path) {
+			curr_ = temp;
+			temp = nullptr;
+			return "";
+		}
+		temp = temp->rightSibling_;
+	}
+
+	return "invalid path";
 }
 
 string FileSystem::ls() const {
@@ -92,8 +135,25 @@ string FileSystem::ls() const {
 }
 
 string FileSystem::pwd() const {
+	// print absolute path of the current directory
+	// Keep going up the tree until the root is reached
 
-	return ""; // dummy
+	Node* temp = curr_;
+	string res = "";
+
+	while temp != root_ {
+		if (temp->parent_ != nullptr) {
+			res = "/" + temp->name + res;
+			temp = temp->parent;
+		} else {
+			while (temp->leftSibling() != nullptr) {
+				temp = temp->leftSibling();
+			}
+			temp = temp->parent_;
+		}
+	}
+
+	return res;
 }
 
 string FileSystem::tree() const {

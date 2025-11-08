@@ -39,3 +39,12 @@
 
 # debug information files
 *.dwo
+
+# ignore all files in the build directory
+build/
+
+.idea/
+.vscode/
+cmake-build-debug/
+FileSystemTesterMain.dSYM/
+main.dSYM/
