@@ -48,3 +48,5 @@ build/
 cmake-build-debug/
 FileSystemTesterMain.dSYM/
 main.dSYM/
+main
+main.exe
