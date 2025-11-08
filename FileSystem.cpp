@@ -1,12 +1,8 @@
 #include "FileSystem.h"
+#include <cstddef>
+#include <stack>
 
-Node::Node(const string& name, bool isDir, Node* parent, Node* leftmostChild, Node* rightSibling) {
-	name_ = name;
-	isDir_ = isDir;
-	parent_ = parent;
-	leftmostChild_ = leftmostChild;
-	rightSibling_ = rightSibling;
-
+Node::Node(const string& name, bool isDir, Node* parent, Node* leftmostChild, Node* rightSibling) : name_(name), isDir_(isDir), parent_(parent), leftmostChild_(leftmostChild), rightSibling_(rightSibling) {
 }
 
 Node::~Node() {
@@ -95,8 +91,7 @@ FileSystem::FileSystem(const string& testinput) {
 
 FileSystem::~FileSystem() {
 	// release all memory used by the file system
-	// Only delete root_ - it will recursively delete all children
-	// curr_ is just a pointer into the tree, not a separate allocation
+	// delete root_ will recursively delete all children
 	delete root_;
 }
 
@@ -167,8 +162,30 @@ string FileSystem::pwd() const {
 }
 
 string FileSystem::tree() const {
+	if (!curr_) return "";
 
-	return ""; // dummy
+    string tree_view;
+	int level = 0;
+    std::stack<std::pair<Node*, int>> st;
+    st.push({curr_, level});
+
+    while (!st.empty()) {
+        auto [node, depth] = st.top();
+        st.pop();
+
+        string tabs(depth, ' ');
+        tree_view += tabs + node->name_ + (node->isDir_ ? "/" : "") + "\n";
+
+        if (node->rightSibling_) {
+            st.push({node->rightSibling_, depth});
+        }
+
+        if (node->leftmostChild_) {
+            st.push({node->leftmostChild_, depth + 1});
+        }
+    }
+
+    return tree_view;
 }
 
 string FileSystem::touch(const string& name) {
