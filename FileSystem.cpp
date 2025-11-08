@@ -176,7 +176,7 @@ string FileSystem::tree() const {
         string tabs(depth, ' ');
         tree_view += tabs + node->name_ + (node->isDir_ ? "/" : "") + "\n";
 
-        if (node->rightSibling_) {
+        if (node != curr_ && node->rightSibling_) {
             st.push({node->rightSibling_, depth});
         }
 
