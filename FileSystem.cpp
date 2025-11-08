@@ -16,7 +16,14 @@ Node::~Node() {
 }
 
 Node* Node::leftSibling() const {
-	return nullptr; // dummy
+	Node* temp = parent_->leftmostChild_;
+	while (temp != nullptr) {
+		if (temp->rightSibling_ == this) {
+			return temp;
+		}
+		temp = temp->rightSibling_;
+	}
+	return nullptr;
 }
 
 FileSystem::FileSystem() {
@@ -141,19 +148,12 @@ string FileSystem::pwd() const {
 	Node* temp = curr_;
 	string res = "";
 
-	while temp != root_ {
-		if (temp->parent_ != nullptr) {
-			res = "/" + temp->name + res;
-			temp = temp->parent;
-		} else {
-			while (temp->leftSibling() != nullptr) {
-				temp = temp->leftSibling();
-			}
-			temp = temp->parent_;
-		}
+	while (temp != root_) {
+		res = "/" + temp->name_ + res;
+		temp = temp->parent_;
 	}
 
-	return res;
+	return "/" + res;
 }
 
 string FileSystem::tree() const {
