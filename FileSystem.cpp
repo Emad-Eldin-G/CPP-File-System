@@ -189,8 +189,17 @@ string FileSystem::tree() const {
 }
 
 string FileSystem::touch(const string& name) {
+	// Check if file/directory with this name already exists in current directory
+	Node* i = curr_->leftmostChild_;
+	while (i != nullptr) {
+		if (i->name_ == name) {
+			return name + "/" + i->parent_->name_+ " already exists";
+		}
+		i = i->rightSibling_;
+	}
 
-	return ""; // dummy
+	// TODO: Create file if it doesn't exist
+	return "";
 }
 
 string FileSystem::mkdir(const string& name) {
