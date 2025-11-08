@@ -10,9 +10,13 @@ Node::Node(const string& name, bool isDir, Node* parent, Node* leftmostChild, No
 }
 
 Node::~Node() {
-	// empty for now
-	// later add code to delete the node and all its children
-
+	// Recursively delete all children
+	Node* child = leftmostChild_;
+	while (child != nullptr) {
+		Node* next = child->rightSibling_;
+		delete child;
+		child = next;
+	}
 }
 
 Node* Node::leftSibling() const {
@@ -85,18 +89,21 @@ FileSystem::FileSystem(const string& testinput) {
 		c0->leftmostChild_ = a3;
 		a1->leftmostChild_ = a4;
 	}
+
+	return;
 }
 
 FileSystem::~FileSystem() {
 	// release all memory used by the file system
+	// Only delete root_ - it will recursively delete all children
+	// curr_ is just a pointer into the tree, not a separate allocation
 	delete root_;
-	delete curr_;
 }
 
 string FileSystem::cd(const string& path) {
 	// Case 1: path is .. - go up one level
 	if (path == "..") {
-		if (curr->parent_ == nullptr) {
+		if (curr_->parent_ == nullptr) {
 			return "invalid path";
 		} else {
 			curr_ = curr_->parent_;
@@ -111,10 +118,10 @@ string FileSystem::cd(const string& path) {
 	}
 
 	// Case 3: path is a child of the current directory
-	Node* temp = curr_.leftmostChild_;
+	Node* temp = curr_->leftmostChild_;
 
 	while (temp != nullptr){
-		if (temp == path) {
+		if (temp->name_ == path) {
 			curr_ = temp;
 			temp = nullptr;
 			return "";
@@ -153,7 +160,10 @@ string FileSystem::pwd() const {
 		temp = temp->parent_;
 	}
 
-	return "/" + res;
+	// If res is empty, we're at root, return "/"
+	// Otherwise, res already starts with "/", so just return it
+	// This avoids the double slash in terminal view
+	return res.empty() ? "/" : res;
 }
 
 string FileSystem::tree() const {
