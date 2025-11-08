@@ -199,6 +199,26 @@ string FileSystem::touch(const string& name) {
 	}
 
 	// TODO: Create file if it doesn't exist
+	Node* prev = curr_;
+	Node* node = prev->leftmostChild_;
+	if (node == nullptr) prev->leftmostChild_ = new Node(name, false, prev);
+	else {
+		while (node != nullptr) {
+			if (name < node->name_) {
+				if (prev->isDir_) {
+					Node* new_node = new Node(name, false, node->parent_);
+					prev->leftmostChild_ = new_node;
+					new_node->rightSibling_ = node;
+					return "";
+				} else {
+					Node* new_node = new Node(name, false, prev->parent_);
+					prev->rightSibling_ = new_node;
+					new_node->rightSibling_ = node;
+					return "";
+				}
+			}
+		}
+	}
 	return "";
 }
 
