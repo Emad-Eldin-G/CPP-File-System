@@ -31,6 +31,15 @@ class FileSystem {
 
     // Helper method to insert a node in alphabetical order
     void insert_inorder(Node* new_node, Node* parent);
+    
+    // Helper method to navigate to a node given a path
+    Node* navigateToPath(const string& path, Node* startDir);
+    
+    // Helper method to get parent directory from path
+    Node* getParentFromPath(const string& path, string& filename);
+    
+    // Helper function to check if node1 is an ancestor of node2
+    bool isAncestor(Node* node1, Node* node2);
 
 public:
     // default constructor

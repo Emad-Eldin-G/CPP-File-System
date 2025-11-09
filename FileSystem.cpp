@@ -1,6 +1,10 @@
 #include "FileSystem.h"
 #include <cstddef>
 #include <stack>
+#include <sstream>
+#include <vector>
+using std::vector;
+using std::stringstream;
 
 Node::Node(const string& name, bool isDir, Node* parent, Node* leftmostChild, Node* rightSibling) : name_(name), isDir_(isDir), parent_(parent), leftmostChild_(leftmostChild), rightSibling_(rightSibling) {
 }
@@ -122,35 +126,98 @@ void FileSystem::insert_inorder(Node* new_node, Node* parent) {
 	}
 }
 
-string FileSystem::cd(const string& path) {
-	// Case 1: path is .. - go up one level
-	if (path == "..") {
-		if (curr_->parent_ == nullptr) return "invalid path";
-		curr_ = curr_->parent_;
-		return "";
-	}
-	// Case 2: path is / - go to root
-	else if (path == "/") {
-		curr_ = root_;
-		return "";
-	}
-	// Case 3: path is a child of the current directory
-	else {
-		Node* temp = curr_->leftmostChild_;
-		while (temp != nullptr) {
-			if (temp->name_ == path) {
-				if (!temp->isDir_) {
-					return path + " is not a directory";
-				}
-				curr_ = temp;
-				return "";
-			}
-			temp = temp->rightSibling_;
+Node* FileSystem::navigateToPath(const string& path, Node* startDir) {
+	if (path.empty()) return nullptr;
+	
+	// Split path by '/'
+	vector<string> parts;
+	stringstream ss(path);
+	string part;
+	while (getline(ss, part, '/')) {
+		if (!part.empty()) {
+			parts.push_back(part);
 		}
+	}
+	
+	if (parts.empty()) {
+		// Path is just "/" or empty after splitting
+		return (path[0] == '/') ? root_ : startDir;
+	}
+	
+	// Determine starting directory
+	Node* current = (path[0] == '/') ? root_ : startDir;
+	
+	// Navigate through each part
+	for (size_t i = 0; i < parts.size(); i++) {
+		if (parts[i] == "..") {
+			if (current->parent_ == nullptr) return nullptr;
+			current = current->parent_;
+		} else if (parts[i] == ".") {
+			// Stay in current directory
+			continue;
+		} else {
+			// Find child with this name
+			Node* child = current->leftmostChild_;
+			while (child != nullptr && child->name_ != parts[i]) {
+				child = child->rightSibling_;
+			}
+			if (child == nullptr) return nullptr;
+			// If this is the last part, return the node
+			if (i == parts.size() - 1) {
+				return child;
+			}
+			if (!child->isDir_) return nullptr; // /a/b.txt/c is invalid
+			current = child;
+		}
+	}
+	
+	return current;
+}
+
+Node* FileSystem::getParentFromPath(const string& path, string& filename) {
+	if (path.empty()) return nullptr;
+	
+	// Find last '/'
+	size_t lastSlash = path.find_last_of('/');
+	
+	if (lastSlash == string::npos) {
+		// No slash - path is just a filename in current directory
+		filename = path;
+		return curr_;
+	}
+	
+	// Extract filename and parent path
+	filename = path.substr(lastSlash + 1);
+	string parentPath = path.substr(0, lastSlash);
+	
+	if (parentPath.empty()) {
+		// Path was "/filename" - parent is root
+		return root_;
+	}
+	
+	// Navigate to parent directory
+	Node* parent = navigateToPath(parentPath, curr_);
+	if (parent == nullptr || !parent->isDir_) return nullptr;
+	return parent;
+}
+
+bool FileSystem::isAncestor(Node* node1, Node* node2) {
+	if (!node1->isDir_) return false; // files can’t be ancestors
+	Node* current = node2;
+	while (current != nullptr) {
+		if (current == node1) return true;
+		current = current->parent_;
+	}
+	return false;
+}
+
+string FileSystem::cd(const string& path) {
+	Node* target = navigateToPath(path, curr_);
+	if (target == nullptr || !target->isDir_) {
 		return "invalid path";
 	}
-
-	// TODO: add support for relative path cd
+	curr_ = target;
+	return "";
 }
 
 string FileSystem::ls() const {
@@ -209,6 +276,8 @@ string FileSystem::tree() const {
         }
     }
 
+	// remove the last \n
+	tree_view.pop_back();
     return tree_view;
 }
 
@@ -217,17 +286,23 @@ string FileSystem::touch(const string& name) {
 		return "";
 	}
 
-	// Check if file with this name already exists in current directory
-	Node* i = curr_->leftmostChild_;
+	string filename;
+	Node* parentDir = getParentFromPath(name, filename);
+	if (parentDir == nullptr) {
+		return "invalid path";
+	}
+
+	// Check if file with this name already exists in parent directory
+	Node* i = parentDir->leftmostChild_;
 	while (i != nullptr) {
-		if (i->name_ == name && !i->isDir_) {
-			return name + "/" + i->parent_->name_+ " already exists";
+		if (i->name_ == filename && !i->isDir_) {
+			return "file/directory already exists";
 		}
 		i = i->rightSibling_;
 	}
 
-	Node* new_file = new Node(name, false, curr_);
-	insert_inorder(new_file, curr_);
+	Node* new_file = new Node(filename, false, parentDir);
+	insert_inorder(new_file, parentDir);
 	return "";
 }
 
@@ -236,195 +311,223 @@ string FileSystem::mkdir(const string& name) {
 		return "";
 	}
 
-	// Check if directory with this name already exists in current directory
-	Node* i = curr_->leftmostChild_;
+	string dirname;
+	Node* parentDir = getParentFromPath(name, dirname);
+	if (parentDir == nullptr) {
+		return "invalid path";
+	}
+
+	// Check if directory with this name already exists in parent directory
+	Node* i = parentDir->leftmostChild_;
 	while (i != nullptr) {
-		if (i->name_ == name && i->isDir_) {
-			return name + "/" + i->parent_->name_+ " already exists";
+		if (i->name_ == dirname && i->isDir_) {
+			return "file/directory already exists";
 		}
 		i = i->rightSibling_;
 	}
 
-	Node* new_dir = new Node(name, true, curr_);
-	insert_inorder(new_dir, curr_);
+	Node* new_dir = new Node(dirname, true, parentDir);
+	insert_inorder(new_dir, parentDir);
 	return "";
 }
 
 string FileSystem::rm(const string& name) {
-	Node* i = curr_->leftmostChild_;
+	string filename;
+	Node* parentDir = getParentFromPath(name, filename);
+	if (parentDir == nullptr) {
+		return "file not found";
+	}
 
-	// Check if directory is empty
-	if (i == nullptr) {
+	Node* target = parentDir->leftmostChild_;
+	while (target != nullptr && target->name_ != filename) {
+		target = target->rightSibling_;
+	}
+
+	if (target == nullptr) {
 		return "file not found";
 	}
-	else if (i->name_ == name) {
-		if (i->isDir_) {
-			return "not a file";
-		}
-		curr_->leftmostChild_ = i->rightSibling_;
-		delete i;
-		return "";
+	if (target->isDir_) {
+		return "not a file";
 	}
-	else {
-		while (i != nullptr) {
-			if (i->rightSibling_ != nullptr && i->rightSibling_->name_ == name) {
-				if (i->rightSibling_->isDir_) {
-					return "not a file";
-				}
-				Node* to_del = i->rightSibling_;
-				i->rightSibling_ = i->rightSibling_->rightSibling_;
-				delete to_del;
-				return "";
-			}
-			i = i->rightSibling_;
+
+	// Remove from parent's children list
+	if (target == parentDir->leftmostChild_) {
+		parentDir->leftmostChild_ = target->rightSibling_;
+	} else {
+		Node* prev = parentDir->leftmostChild_;
+		while (prev->rightSibling_ != target) {
+			prev = prev->rightSibling_;
 		}
-		return "file not found";
+		prev->rightSibling_ = target->rightSibling_;
 	}
+	delete target;
+	return "";
 }
 
 string FileSystem::rmdir(const string& name) {
-	Node* i = curr_->leftmostChild_;
+	// Special case: cannot remove root
+	if (name == "/" || name == "..") {
+		return "cannot remove root directory";
+	}
 
-	// Check if directory is empty
-	if (i == nullptr) {
-		return "file not found";
+	string dirname;
+	Node* parentDir = getParentFromPath(name, dirname);
+	if (parentDir == nullptr) {
+		return "directory not found";
 	}
-	else if (i->name_ == name) {
-		if (!i->isDir_) {
-			return "not a directory";
-		} // check that dir is empty - no children
-		else if (i->leftmostChild_ != nullptr) {
-			return "directory not empty";
+
+	Node* target = parentDir->leftmostChild_;
+	while (target != nullptr && target->name_ != dirname) {
+		target = target->rightSibling_;
+	}
+
+	if (target == nullptr) {
+		return "directory not found";
+	}
+	if (!target->isDir_) {
+		return "not a directory";
+	}
+	if (target == root_) {
+		return "cannot remove root directory";
+	}
+	if (target->leftmostChild_ != nullptr) {
+		return "directory not empty";
+	}
+
+	// Remove from parent's children list
+	if (target == parentDir->leftmostChild_) {
+		parentDir->leftmostChild_ = target->rightSibling_;
+	} else {
+		Node* prev = parentDir->leftmostChild_;
+		while (prev->rightSibling_ != target) {
+			prev = prev->rightSibling_;
 		}
-		curr_->leftmostChild_ = i->rightSibling_;
-		delete i;
-		return "";
+		prev->rightSibling_ = target->rightSibling_;
 	}
-	else {
-		while (i != nullptr) {
-			if (i->rightSibling_ != nullptr && i->rightSibling_->name_ == name) {
-				if (!i->rightSibling_->isDir_) {
-					return "not a directory";
-				}// check that dir is empty - no children
-				else if (i->rightSibling_->leftmostChild_ != nullptr) {
-					return "directory not empty";
-				}
-				Node* to_del = i->rightSibling_;
-				i->rightSibling_ = i->rightSibling_->rightSibling_;
-				delete to_del;
-				return "";
-			}
-			i = i->rightSibling_;
-		}
-		return "file not found";
-	}
+	delete target;
+	return "";
 }
+
 
 string FileSystem::mv(const string& src, const string& dest) {
 	if (dest.length() < 1 || src.length() < 1){
 		return "invalid path";
-	};
+	}
+
+	if (src == dest) {
+		return "source and destination are the same";
+	}
+
+	// Find source node
+	Node* temp_src;
+	if (src == "..") {
+		if (curr_ == root_) {
+			return "source does not exist";
+		}
+		temp_src = curr_->parent_;
+	} else {
+		temp_src = navigateToPath(src, curr_);
+		if (temp_src == nullptr) {
+			return "source does not exist";
+		}
+	}
+
+	// Cannot move root
+	if (temp_src == root_) {
+		return "cannot move or rename root directory";
+	}
+
+	// Check if current directory is inside source
+	if (isAncestor(temp_src, curr_)) {
+		return "cannot move or rename while current directory is inside source";
+	}
+
+	// Handle destination
+	Node* dest_parent;
+	string dest_filename;
 	
 	if (dest == "..") {
 		if (curr_ == root_) {
 			return "invalid path";
 		}
-
-		// Find the source node in current directory
-		Node* temp_src = curr_->leftmostChild_;
-		while (temp_src != nullptr && temp_src->name_ != src) {
-			temp_src = temp_src->rightSibling_;
-		}
-
-		if (temp_src == nullptr) {
-			return "source does not exist";
-		}
-
-		Node* node_to_move = temp_src;
-		// Remove src from current directory's children list
-		if (temp_src == curr_->leftmostChild_) {
-			// It's the first child
-			curr_->leftmostChild_ = temp_src->rightSibling_;
-		} else {
-			// Find the previous sibling
-			Node* prev = curr_->leftmostChild_;
-			while (prev->rightSibling_ != temp_src) {
-				prev = prev->rightSibling_;
-			}
-			prev->rightSibling_ = temp_src->rightSibling_;
-		}
-
-		// Update parent and insert into parent directory
-		node_to_move->parent_ = curr_->parent_;
-		node_to_move->rightSibling_ = nullptr;
-		insert_inorder(node_to_move, curr_->parent_);
-		return "";
-
-	}
-	else {
-		// Single loop instead of two - O(n) > O(2n)
-		Node* temp_src = nullptr;
-		Node* temp_dest = nullptr;
-		Node* current = curr_->leftmostChild_;
+		dest_parent = curr_->parent_;
+		dest_filename = temp_src->name_; // Keep original name when moving to parent
 		
-		while (current != nullptr) {
-			if (current->name_ == src) {
-				temp_src = current;
+		// Check if parent already has a file/directory with the same name
+		Node* check = dest_parent->leftmostChild_;
+		while (check != nullptr) {
+			if (check->name_ == dest_filename) {
+				return "destination already has file/directory of same name";
 			}
-			if (current->name_ == dest) {
-				temp_dest = current;
+			check = check->rightSibling_;
+		}
+	} else if (dest == "/") {
+		// Moving to root
+		dest_parent = root_;
+		dest_filename = temp_src->name_; // Keep original name
+		
+		// Check if root already has a file/directory with the same name
+		Node* check = root_->leftmostChild_;
+		while (check != nullptr) {
+			if (check->name_ == dest_filename) {
+				return "destination already has file/directory of same name";
 			}
-			// If we found both, we can break early
-			if (temp_src != nullptr && temp_dest != nullptr) {
-				break;
-			}
-			current = current->rightSibling_;
+			check = check->rightSibling_;
+		}
+	} else {
+		dest_parent = getParentFromPath(dest, dest_filename);
+		if (dest_parent == nullptr) {
+			return "invalid path";
 		}
 
-		if (temp_src == nullptr) {
-			return "source does not exist";
+		// Check if destination already exists
+		Node* temp_dest = dest_parent->leftmostChild_;
+		while (temp_dest != nullptr && temp_dest->name_ != dest_filename) {
+			temp_dest = temp_dest->rightSibling_;
 		}
 
-		// If destination exists, it must be a directory to move into
 		if (temp_dest != nullptr) {
+			// Destination exists
 			if (!temp_dest->isDir_) {
-				return "destination is an existing file";
-			}
-			if (temp_src == temp_dest) {
-				return "source and destination are the same";
-			}
-			// Move into the destination directory
-			if (temp_src == curr_->leftmostChild_) {
-				curr_->leftmostChild_ = temp_src->rightSibling_;
-			} else {
-				Node* prev = curr_->leftmostChild_;
-				while (prev->rightSibling_ != temp_src) {
-					prev = prev->rightSibling_;
+				if (temp_src->isDir_) {
+					return "source is a directory but destination is an existing file";
+				} else {
+					return "destination already has file of same name";
 				}
-				prev->rightSibling_ = temp_src->rightSibling_;
 			}
-			// Update parent and insert into destination directory
-			temp_src->parent_ = temp_dest;
-			temp_src->rightSibling_ = nullptr;
-			insert_inorder(temp_src, temp_dest);
-			return "";
-		}
-		// Destination doesn't exist - rename source
-		else {
-			if (temp_src == curr_->leftmostChild_) {
-				curr_->leftmostChild_ = temp_src->rightSibling_;
-			} else {
-				Node* prev = curr_->leftmostChild_;
-				while (prev->rightSibling_ != temp_src) {
-					prev = prev->rightSibling_;
+			// Destination is a directory - check if moving into itself
+			if (temp_dest == temp_src || isAncestor(temp_src, temp_dest)) {
+				return "cannot move source into a subdirectory of itself";
+			}
+			// Check if destination already has a child with same name as source
+			Node* check = temp_dest->leftmostChild_;
+			while (check != nullptr) {
+				if (check->name_ == temp_src->name_) {
+					return "destination already has file/directory of same name";
 				}
-				prev->rightSibling_ = temp_src->rightSibling_;
+				check = check->rightSibling_;
 			}
-			// Rename and reinsert in alphabetical order
-			temp_src->name_ = dest;
-			temp_src->rightSibling_ = nullptr;
-			insert_inorder(temp_src, curr_);
-			return "";
+			dest_parent = temp_dest;
+			dest_filename = temp_src->name_; // Keep original name when moving into directory
 		}
 	}
+
+	// Get source's parent and remove from it
+	Node* src_parent = temp_src->parent_;
+	if (temp_src == src_parent->leftmostChild_) {
+		src_parent->leftmostChild_ = temp_src->rightSibling_;
+	} else {
+		Node* prev = src_parent->leftmostChild_;
+		while (prev->rightSibling_ != temp_src) {
+			prev = prev->rightSibling_;
+		}
+		prev->rightSibling_ = temp_src->rightSibling_;
+	}
+
+	// Update source node
+	temp_src->parent_ = dest_parent;
+	temp_src->name_ = dest_filename;
+	temp_src->rightSibling_ = nullptr;
+	insert_inorder(temp_src, dest_parent);
+	return "";
 }
