@@ -362,29 +362,69 @@ string FileSystem::mv(const string& src, const string& dest) {
 
 	}
 	else {
-		Node* temp_src = curr_->leftmostChild_;
-		Node* temp_dest = curr_->leftmostChild_;
+		// Single loop instead of two - O(n) > O(2n)
+		Node* temp_src = nullptr;
+		Node* temp_dest = nullptr;
+		Node* current = curr_->leftmostChild_;
 		
-		Node* i = curr_->leftmostChild_;
-		while (curr_ != nullptr) {
-			if (curr_->name_ == src) {
-				temp_src = curr_;
+		while (current != nullptr) {
+			if (current->name_ == src) {
+				temp_src = current;
 			}
-			if (curr_->name_ == dest) {
-				temp_dest = curr_;
+			if (current->name_ == dest) {
+				temp_dest = current;
 			}
+			// If we found both, we can break early
+			if (temp_src != nullptr && temp_dest != nullptr) {
+				break;
+			}
+			current = current->rightSibling_;
 		}
 
-		if (temp_src->isDir_ && !temp_dest->isDir_) {
-			return "source is a directory but destination is an existing file";
-		}
-		else if (temp_src == temp_dest) {
-			return "source and destination are the same";
-		}
-		else if (temp_src == nullptr || (temp_src != nullptr && temp_src->name_ != src)) {
+		if (temp_src == nullptr) {
 			return "source does not exist";
 		}
 
-		return "";
+		// If destination exists, it must be a directory to move into
+		if (temp_dest != nullptr) {
+			if (!temp_dest->isDir_) {
+				return "destination is an existing file";
+			}
+			if (temp_src == temp_dest) {
+				return "source and destination are the same";
+			}
+			// Move into the destination directory
+			if (temp_src == curr_->leftmostChild_) {
+				curr_->leftmostChild_ = temp_src->rightSibling_;
+			} else {
+				Node* prev = curr_->leftmostChild_;
+				while (prev->rightSibling_ != temp_src) {
+					prev = prev->rightSibling_;
+				}
+				prev->rightSibling_ = temp_src->rightSibling_;
+			}
+			// Update parent and insert into destination directory
+			temp_src->parent_ = temp_dest;
+			temp_src->rightSibling_ = nullptr;
+			insert_inorder(temp_src, temp_dest);
+			return "";
+		}
+		// Destination doesn't exist - rename source
+		else {
+			if (temp_src == curr_->leftmostChild_) {
+				curr_->leftmostChild_ = temp_src->rightSibling_;
+			} else {
+				Node* prev = curr_->leftmostChild_;
+				while (prev->rightSibling_ != temp_src) {
+					prev = prev->rightSibling_;
+				}
+				prev->rightSibling_ = temp_src->rightSibling_;
+			}
+			// Rename and reinsert in alphabetical order
+			temp_src->name_ = dest;
+			temp_src->rightSibling_ = nullptr;
+			insert_inorder(temp_src, curr_);
+			return "";
+		}
 	}
 }
