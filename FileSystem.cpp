@@ -190,6 +190,10 @@ string FileSystem::tree() const {
 
 string FileSystem::touch(const string& name) {
 	// Check if file/directory with this name already exists in current directory
+	if (name.length() < 1) {
+		return "";
+	}
+	
 	Node* i = curr_->leftmostChild_;
 	while (i != nullptr) {
 		if (i->name_ == name) {
