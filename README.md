@@ -1,5 +1,7 @@
 # C++ File System 
-> In progress
+<a href="https://cplusplus.com/">
+    <img src="https://img.shields.io/badge/C%2B%2B-%2300599C?style=flat-square&logo=cplusplus&logoColor=ffffff" alt="C++" />
+</a>
 
 
 <table> <tr> <td>
@@ -81,6 +83,7 @@ If the project compiles successfully, an executable **main** will appear in the 
 Initially, the project will have no data. To load data into the emulator, type:
 > load 1
 
-This is typed ***inside the main executable***.  
-There are three file groups available to load: load 1, load 2, and load 3.
+> [!NOTE]
+> This is typed ***inside the main executable***.  
+> There are three file groups available to load: load 1, load 2, and load 3.
 
