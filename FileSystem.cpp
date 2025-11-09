@@ -112,6 +112,9 @@ string FileSystem::cd(const string& path) {
 		Node* temp = curr_->leftmostChild_;
 		while (temp != nullptr) {
 			if (temp->name_ == path) {
+				if (!temp->isDir_) {
+					return path + " is not a directory";
+				}
 				curr_ = temp;
 				return "";
 			}
