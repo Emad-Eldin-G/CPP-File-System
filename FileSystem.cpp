@@ -119,6 +119,8 @@ string FileSystem::cd(const string& path) {
 		}
 		return "invalid path";
 	}
+
+	// TODO: add support for relative path cd
 }
 
 string FileSystem::ls() const {
@@ -268,7 +270,11 @@ string FileSystem::mkdir(const string& name) {
 string FileSystem::rm(const string& name) {
 	Node* i = curr_->leftmostChild_;
 
-	if (i->name_ == name) {
+	// Check if directory is empty
+	if (i == nullptr) {
+		return "file not found";
+	}
+	else if (i->name_ == name) {
 		if (i->isDir_) {
 			return "not a file";
 		}
@@ -294,8 +300,41 @@ string FileSystem::rm(const string& name) {
 }
 
 string FileSystem::rmdir(const string& name) {
+	Node* i = curr_->leftmostChild_;
 
-	return ""; // dummy
+	// Check if directory is empty
+	if (i == nullptr) {
+		return "file not found";
+	}
+	else if (i->name_ == name) {
+		if (!i->isDir_) {
+			return "not a directory";
+		} // check that dir is empty - no children
+		else if (i->leftmostChild_ != nullptr) {
+			return "directory not empty";
+		}
+		curr_->leftmostChild_ = i->rightSibling_;
+		delete i;
+		return "";
+	}
+	else {
+		while (i != nullptr) {
+			if (i->rightSibling_ != nullptr && i->rightSibling_->name_ == name) {
+				if (!i->rightSibling_->isDir_) {
+					return "not a directory";
+				}// check that dir is empty - no children
+				else if (i->rightSibling_->leftmostChild_ != nullptr) {
+					return "directory not empty";
+				}
+				Node* to_del = i->rightSibling_;
+				i->rightSibling_ = i->rightSibling_->rightSibling_;
+				delete to_del;
+				return "";
+			}
+			i = i->rightSibling_;
+		}
+		return "file not found";
+	}
 }
 
 string FileSystem::mv(const string& src, const string& dest) {
