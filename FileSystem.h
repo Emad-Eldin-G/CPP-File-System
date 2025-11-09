@@ -29,6 +29,9 @@ class FileSystem {
     Node* root_; // pointer to root directory
     Node* curr_; // pointer to current directory
 
+    // Helper method to insert a node in alphabetical order
+    void insert_inorder(Node* new_node, Node* parent);
+
 public:
     // default constructor
     FileSystem();

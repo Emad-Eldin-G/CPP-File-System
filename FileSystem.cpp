@@ -95,6 +95,33 @@ FileSystem::~FileSystem() {
 	delete root_;
 }
 
+void FileSystem::insert_inorder(Node* new_node, Node* parent) {
+	// If directory is empty, make it the leftmost child
+	if (parent->leftmostChild_ == nullptr) {
+		parent->leftmostChild_ = new_node;
+	}
+	// If new node should be first (alphabetically before leftmost child)
+	else if (new_node->name_ < parent->leftmostChild_->name_) {
+		new_node->rightSibling_ = parent->leftmostChild_;
+		parent->leftmostChild_ = new_node;
+	}
+	// Otherwise, find the correct position in the sibling chain
+	else {
+		Node* prev = parent->leftmostChild_;
+		Node* current = prev->rightSibling_;
+		
+		// Find where to insert (alphabetically ordered)
+		while (current != nullptr && new_node->name_ > current->name_) {
+			prev = current;
+			current = current->rightSibling_;
+		}
+		
+		// Insert between prev and current
+		new_node->rightSibling_ = current;
+		prev->rightSibling_ = new_node;
+	}
+}
+
 string FileSystem::cd(const string& path) {
 	// Case 1: path is .. - go up one level
 	if (path == "..") {
@@ -162,7 +189,7 @@ string FileSystem::tree() const {
 
     string tree_view;
 	int level = 0;
-    std::stack<std::pair<Node*, int>> st;
+    std::stack<std::pair<Node*, int>> st; // dfs stack
     st.push({curr_, level});
 
     while (!st.empty()) {
@@ -170,8 +197,9 @@ string FileSystem::tree() const {
         st.pop();
 
         string tabs(depth, ' ');
-        tree_view += tabs + node->name_ + (node->isDir_ ? "/" : "") + "\n";
+        tree_view += tabs + node->name_ + (node->isDir_ ? "/" : "") + "\n"; // dirs already have "/", so don't add one to prevent duplicate "//"
 
+		// the node we're DFSing from should start checking from children, NOT siblings
         if (node != curr_ && node->rightSibling_) {
             st.push({node->rightSibling_, depth});
         }
@@ -199,32 +227,7 @@ string FileSystem::touch(const string& name) {
 	}
 
 	Node* new_file = new Node(name, false, curr_);
-
-	// If directory is empty, make it the leftmost child
-	if (curr_->leftmostChild_ == nullptr) {
-		curr_->leftmostChild_ = new_file;
-	}
-	// If new file should be first (alphabetically before leftmost child)
-	else if (name < curr_->leftmostChild_->name_) {
-		new_file->rightSibling_ = curr_->leftmostChild_;
-		curr_->leftmostChild_ = new_file;
-	}
-	// Otherwise, find the correct position in the sibling level
-	else {
-		Node* prev = curr_->leftmostChild_;
-		Node* current = prev->rightSibling_;
-		
-		// Find where to insert (alphabetically ordered)
-		while (current != nullptr && name > current->name_) {
-			prev = current;
-			current = current->rightSibling_;
-		}
-		
-		// Insert between prev and current
-		new_file->rightSibling_ = current;
-		prev->rightSibling_ = new_file;
-	}
-
+	insert_inorder(new_file, curr_);
 	return "";
 }
 
@@ -243,30 +246,7 @@ string FileSystem::mkdir(const string& name) {
 	}
 
 	Node* new_dir = new Node(name, true, curr_);
-
-	// If directory is empty, make it the leftmost child
-	if (curr_->leftmostChild_ == nullptr) {
-		curr_->leftmostChild_ = new_dir;
-	}
-	// If new directory should be first (alphabetically before leftmost child)
-	else if (name < curr_->leftmostChild_->name_) {
-		new_dir->rightSibling_ = curr_->leftmostChild_;
-		curr_->leftmostChild_ = new_dir;
-	}
-	// Otherwise, find the correct position in the sibling level
-	else {
-		Node* prev = curr_->leftmostChild_;
-		Node* current = prev->rightSibling_;
-		
-		// Find where to insert (alphabetically ordered)
-		while (current != nullptr && name > current->name_) {
-			prev = current;
-			current = current->rightSibling_;
-		}
-		
-		new_dir->rightSibling_ = current;
-		prev->rightSibling_ = new_dir;
-	}
+	insert_inorder(new_dir, curr_);
 	return "";
 }
 
@@ -341,6 +321,70 @@ string FileSystem::rmdir(const string& name) {
 }
 
 string FileSystem::mv(const string& src, const string& dest) {
+	if (dest.length() < 1 || src.length() < 1){
+		return "invalid path";
+	};
+	
+	if (dest == "..") {
+		if (curr_ == root_) {
+			return "invalid path";
+		}
 
-	return ""; // dummy
+		// Find the source node in current directory
+		Node* temp_src = curr_->leftmostChild_;
+		while (temp_src != nullptr && temp_src->name_ != src) {
+			temp_src = temp_src->rightSibling_;
+		}
+
+		if (temp_src == nullptr) {
+			return "source does not exist";
+		}
+
+		Node* node_to_move = temp_src;
+		// Remove src from current directory's children list
+		if (temp_src == curr_->leftmostChild_) {
+			// It's the first child
+			curr_->leftmostChild_ = temp_src->rightSibling_;
+		} else {
+			// Find the previous sibling
+			Node* prev = curr_->leftmostChild_;
+			while (prev->rightSibling_ != temp_src) {
+				prev = prev->rightSibling_;
+			}
+			prev->rightSibling_ = temp_src->rightSibling_;
+		}
+
+		// Update parent and insert into parent directory
+		node_to_move->parent_ = curr_->parent_;
+		node_to_move->rightSibling_ = nullptr;
+		insert_inorder(node_to_move, curr_->parent_);
+		return "";
+
+	}
+	else {
+		Node* temp_src = curr_->leftmostChild_;
+		Node* temp_dest = curr_->leftmostChild_;
+		
+		Node* i = curr_->leftmostChild_;
+		while (curr_ != nullptr) {
+			if (curr_->name_ == src) {
+				temp_src = curr_;
+			}
+			if (curr_->name_ == dest) {
+				temp_dest = curr_;
+			}
+		}
+
+		if (temp_src->isDir_ && !temp_dest->isDir_) {
+			return "source is a directory but destination is an existing file";
+		}
+		else if (temp_src == temp_dest) {
+			return "source and destination are the same";
+		}
+		else if (temp_src == nullptr || (temp_src != nullptr && temp_src->name_ != src)) {
+			return "source does not exist";
+		}
+
+		return "";
+	}
 }
