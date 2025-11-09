@@ -98,33 +98,27 @@ FileSystem::~FileSystem() {
 string FileSystem::cd(const string& path) {
 	// Case 1: path is .. - go up one level
 	if (path == "..") {
-		if (curr_->parent_ == nullptr) {
-			return "invalid path";
-		} else {
-			curr_ = curr_->parent_;
-			return "";
-		}
+		if (curr_->parent_ == nullptr) return "invalid path";
+		curr_ = curr_->parent_;
+		return "";
 	}
-
 	// Case 2: path is / - go to root
-	if(path == "/") {
+	else if (path == "/") {
 		curr_ = root_;
 		return "";
 	}
-
 	// Case 3: path is a child of the current directory
-	Node* temp = curr_->leftmostChild_;
-
-	while (temp != nullptr){
-		if (temp->name_ == path) {
-			curr_ = temp;
-			temp = nullptr;
-			return "";
+	else {
+		Node* temp = curr_->leftmostChild_;
+		while (temp != nullptr) {
+			if (temp->name_ == path) {
+				curr_ = temp;
+				return "";
+			}
+			temp = temp->rightSibling_;
 		}
-		temp = temp->rightSibling_;
+		return "invalid path";
 	}
-
-	return "invalid path";
 }
 
 string FileSystem::ls() const {
@@ -144,9 +138,6 @@ string FileSystem::ls() const {
 }
 
 string FileSystem::pwd() const {
-	// print absolute path of the current directory
-	// Keep going up the tree until the root is reached
-
 	Node* temp = curr_;
 	string res = "";
 
@@ -189,51 +180,117 @@ string FileSystem::tree() const {
 }
 
 string FileSystem::touch(const string& name) {
-	// Check if file/directory with this name already exists in current directory
 	if (name.length() < 1) {
 		return "";
 	}
-	
+
+	// Check if file with this name already exists in current directory
 	Node* i = curr_->leftmostChild_;
 	while (i != nullptr) {
-		if (i->name_ == name) {
+		if (i->name_ == name && !i->isDir_) {
 			return name + "/" + i->parent_->name_+ " already exists";
 		}
 		i = i->rightSibling_;
 	}
 
-	// TODO: Create file if it doesn't exist
-	Node* prev = curr_;
-	Node* node = prev->leftmostChild_;
-	if (node == nullptr) prev->leftmostChild_ = new Node(name, false, prev);
-	else {
-		while (node != nullptr) {
-			if (name < node->name_) {
-				if (prev->isDir_) {
-					Node* new_node = new Node(name, false, node->parent_);
-					prev->leftmostChild_ = new_node;
-					new_node->rightSibling_ = node;
-					return "";
-				} else {
-					Node* new_node = new Node(name, false, prev->parent_);
-					prev->rightSibling_ = new_node;
-					new_node->rightSibling_ = node;
-					return "";
-				}
-			}
-		}
+	Node* new_file = new Node(name, false, curr_);
+
+	// If directory is empty, make it the leftmost child
+	if (curr_->leftmostChild_ == nullptr) {
+		curr_->leftmostChild_ = new_file;
 	}
+	// If new file should be first (alphabetically before leftmost child)
+	else if (name < curr_->leftmostChild_->name_) {
+		new_file->rightSibling_ = curr_->leftmostChild_;
+		curr_->leftmostChild_ = new_file;
+	}
+	// Otherwise, find the correct position in the sibling level
+	else {
+		Node* prev = curr_->leftmostChild_;
+		Node* current = prev->rightSibling_;
+		
+		// Find where to insert (alphabetically ordered)
+		while (current != nullptr && name > current->name_) {
+			prev = current;
+			current = current->rightSibling_;
+		}
+		
+		// Insert between prev and current
+		new_file->rightSibling_ = current;
+		prev->rightSibling_ = new_file;
+	}
+
 	return "";
 }
 
 string FileSystem::mkdir(const string& name) {
+	if (name.length() < 1) {
+		return "";
+	}
 
-	return ""; // dummy
+	// Check if directory with this name already exists in current directory
+	Node* i = curr_->leftmostChild_;
+	while (i != nullptr) {
+		if (i->name_ == name && i->isDir_) {
+			return name + "/" + i->parent_->name_+ " already exists";
+		}
+		i = i->rightSibling_;
+	}
+
+	Node* new_dir = new Node(name, true, curr_);
+
+	// If directory is empty, make it the leftmost child
+	if (curr_->leftmostChild_ == nullptr) {
+		curr_->leftmostChild_ = new_dir;
+	}
+	// If new directory should be first (alphabetically before leftmost child)
+	else if (name < curr_->leftmostChild_->name_) {
+		new_dir->rightSibling_ = curr_->leftmostChild_;
+		curr_->leftmostChild_ = new_dir;
+	}
+	// Otherwise, find the correct position in the sibling level
+	else {
+		Node* prev = curr_->leftmostChild_;
+		Node* current = prev->rightSibling_;
+		
+		// Find where to insert (alphabetically ordered)
+		while (current != nullptr && name > current->name_) {
+			prev = current;
+			current = current->rightSibling_;
+		}
+		
+		new_dir->rightSibling_ = current;
+		prev->rightSibling_ = new_dir;
+	}
+	return "";
 }
 
 string FileSystem::rm(const string& name) {
+	Node* i = curr_->leftmostChild_;
 
-	return ""; // dummy
+	if (i->name_ == name) {
+		if (i->isDir_) {
+			return "not a file";
+		}
+		curr_->leftmostChild_ = i->rightSibling_;
+		delete i;
+		return "";
+	}
+	else {
+		while (i != nullptr) {
+			if (i->rightSibling_ != nullptr && i->rightSibling_->name_ == name) {
+				if (i->rightSibling_->isDir_) {
+					return "not a file";
+				}
+				Node* to_del = i->rightSibling_;
+				i->rightSibling_ = i->rightSibling_->rightSibling_;
+				delete to_del;
+				return "";
+			}
+			i = i->rightSibling_;
+		}
+		return "file not found";
+	}
 }
 
 string FileSystem::rmdir(const string& name) {
